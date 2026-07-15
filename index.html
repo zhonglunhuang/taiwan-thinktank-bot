@@ -217,6 +217,7 @@ const QUICK_QUESTIONS = [
 /* ============ 狀態 ============ */
 let ARTICLES = [];
 let apiKey = localStorage.getItem("ttt_api_key") || "";
+let PROXY = false; // 若後端 /api/chat 代理存在則為 true（Key 在伺服器，訪客免貼）
 const chatEl = document.getElementById("chat");
 const inputEl = document.getElementById("input");
 const sendBtn = document.getElementById("send");
@@ -241,11 +242,17 @@ addBot("你好！我是台灣智庫政策小幫手 🤖\n\n我會根據台灣智
 
 function updateModeLabel() {
   const el = document.getElementById("mode-label");
-  el.innerHTML = apiKey
-    ? `Claude API 已連線（${MODEL}）`
-    : "離線示範模式（未設定 API Key）";
+  if (PROXY) el.innerHTML = `Claude API 已連線（伺服器代理 · ${MODEL}）`;
+  else if (apiKey) el.innerHTML = `Claude API 已連線（${MODEL}）`;
+  else el.innerHTML = "離線示範模式（未設定 API Key）";
 }
 updateModeLabel();
+
+// 探測後端代理是否存在（部署到 Vercel 等平台時會有 /api/chat）
+fetch("api/chat")
+  .then(r => r.ok ? r.json() : null)
+  .then(j => { if (j && j.ok) { PROXY = true; updateModeLabel(); } })
+  .catch(() => {});
 
 /* ============ 設定面板 ============ */
 const drawer = document.getElementById("drawer");
@@ -374,6 +381,19 @@ async function askClaude(question) {
   return (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
 }
 
+/* ============ 伺服器代理模式 ============ */
+async function askProxy(question) {
+  const context = buildContext(retrieve(question));
+  const res = await fetch("api/chat", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ question, context }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `伺服器錯誤 HTTP ${res.status}`);
+  return data.reply || "";
+}
+
 /* ============ 離線示範模式 ============ */
 function demoReply(question) {
   const hits = retrieve(question).slice(0, 3);
@@ -391,7 +411,9 @@ async function handleSend() {
   sendBtn.disabled = true;
   const typing = addTyping();
   try {
-    const reply = apiKey ? await askClaude(q) : demoReply(q);
+    const reply = PROXY ? await askProxy(q)
+      : apiKey ? await askClaude(q)
+      : demoReply(q);
     typing.remove();
     addBot(renderReply(reply), true);
   } catch (e) {

@@ -26,16 +26,30 @@ python3 -m http.server 8000
 2. 輸入問題或點快速回覆按鈕，例如「台灣半導體產業的戰略地位？」
 3. 機器人回覆：💡 政策建議 → 📎 參考文章（原文網址）
 
-## 部署到 GitHub Pages
+## 部署選項
+
+### A. Vercel（推薦：API Key 放伺服器，訪客免貼 Key）
+
+前端會自動偵測後端代理 `/api/chat`（見 `api/chat.js`）。部署到 Vercel 後，
+Key 存在 Vercel 環境變數、永遠不會送到瀏覽器，任何人打開就能用。
+
+1. 到 [vercel.com](https://vercel.com) 用 GitHub 登入 → **Add New… → Project**
+2. Import 這個 repo（`taiwan-thinktank-bot`），framework 選 **Other**，直接 Deploy
+3. Project → **Settings → Environment Variables** 新增：
+   - Name：`ANTHROPIC_API_KEY`　Value：`sk-ant-...`（你的金鑰）
+4. **Deployments → 最新一筆 → Redeploy**（讓環境變數生效）
+5. 完成，網址類似 `https://taiwan-thinktank-bot.vercel.app`；標題會顯示「伺服器代理」
+
+> Key 只存在 Vercel 後台，不進 GitHub、不進前端原始碼。
+
+### B. GitHub Pages（純靜態，訪客需自己貼 Key）
 
 ```bash
 gh repo create taiwan-thinktank-bot --public --source=. --push
-gh api repos/{owner}/taiwan-thinktank-bot/pages -X POST \
-  -f "source[branch]=main" -f "source[path]=/"
 ```
-
-或在 GitHub 網頁：**Settings → Pages → Branch: main / (root) → Save**，
-幾分鐘後網站會出現在 `https://<帳號>.github.io/taiwan-thinktank-bot/`。
+或在 GitHub 網頁：**Settings → Pages → Branch: main / (root) → Save**。
+無後端代理，使用者需點右上角 ⚙︎ 自行輸入 API Key（存瀏覽器 localStorage）。
+適合快速 demo。
 
 ## 更新知識庫
 
